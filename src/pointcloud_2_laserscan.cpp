@@ -100,17 +100,36 @@ public:
         // Check NaN value
         if (std::isnan(*iter_x) || std::isnan(*iter_y) || std::isnan(*iter_z))
         {
-          ROS_WARN("Rejected for NaN in points(%f, %f, %f)", *iter_x, *iter_y, *iter_z);
+          ROS_WARN("Rejected for NaN in points : (%f, %f, %f)", *iter_x, *iter_y, *iter_z);
           continue;
         }
 
         // Check out of ROI using max_height && min_height
         if (*iter_z > param_.max_height || *iter_z < param_.min_height)
         {
-          ROS_WARN("Rejected for out of ROI (%f, %f, %f)", *iter_x, *iter_y, *iter_z);
+          ROS_WARN("Rejected for out of ROI [height, min, max] : (%f, %f, %f)", *iter_z, param_.min_height, param_.max_height);
           continue;
         }
 
+        double range = hypot(*iter_x, *iter_y);
+        if (range > param_.range_max || range < param_.range_min)
+        {
+          ROS_WARN("Rejected for out of ROI [range, min, max] : (%f, %f, %f)", range, param_.range_min, param_.range_max);
+          continue;
+        }
+
+        double angle = atan2(*iter_y, *iter_x);
+        if (angle > laserscan_msgs.angle_max || angle < laserscan_msgs.angle_min)
+        {
+          ROS_WARN("Rejected for out of ROI [angle, min, max] : (%f, %f, %f)", angle, laserscan_msgs.angle_min, laserscan_msgs.angle_max);
+          continue;
+        }
+
+        int index = (angle - laserscan_msgs.angle_min) / laserscan_msgs.angle_increment;
+        if (range < laserscan_msgs.ranges[index])
+        {
+          laserscan_msgs.ranges[index] = range;
+        }
       }
 
       // Publish LaserScan
