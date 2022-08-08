@@ -11,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   std_msgs
 )
+find_package(PCL REQUIRED)
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES pointcloud_2_laserscan
@@ -22,9 +23,11 @@ catkin_package(
 include_directories(
 # include
   ${catkin_INCLUDE_DIRS}
+  ${PCL_INCLUDE_DIRS}
 )
 
 add_executable(pointcloud_2_laserscan src/pointcloud_2_laserscan.cpp)
 target_link_libraries(pointcloud_2_laserscan
   ${catkin_LIBRARIES}
+  ${PCL_LIBRARIES}
 )

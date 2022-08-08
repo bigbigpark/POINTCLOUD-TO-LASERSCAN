@@ -17,6 +17,10 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/LaserScan.h>
 #include <sensor_msgs/point_cloud2_iterator.h>
+#include <pcl/conversions.h>
+#include <pcl/point_types.h>
+#include <pcl_conversions/pcl_conversions.h>
+#include <pcl/PCLPointCloud2.h>
 
 struct LaserScanParameter
 {
@@ -54,89 +58,11 @@ public:
     ros::Publisher laser_pub_ = nh_.advertise<sensor_msgs::LaserScan>("/scan", 1);
     ros::Subscriber pointcloud_sub_ = nh_.subscribe("/cloud_in", 1, &LaserScanConverter::cloudCallback, this);
 
-    process();
+    ros::spin();
   }
   ~LaserScanConverter()
   {
 
-  }
-
-  void process()
-  {
-    ros::Rate r(10);
-
-    while(ros::ok())
-    {
-      ros::spinOnce();
-
-      // Convert PointCloud to LaserScan
-      laserscan_msgs.header = pointcloud_msgs.header;
-
-      laserscan_msgs.angle_min = param_.angle_min;
-      laserscan_msgs.angle_max = param_.angle_max;
-      laserscan_msgs.angle_increment = param_.angle_increment;
-      laserscan_msgs.time_increment = 0.0;
-      laserscan_msgs.scan_time = param_.scan_time;
-      laserscan_msgs.range_min = param_.range_min;
-      laserscan_msgs.range_max = param_.range_max;
-      
-      // Determine amount of rays to create 
-      uint32_t ranges_size = std::ceil( (laserscan_msgs.angle_max - laserscan_msgs.angle_min) / laserscan_msgs.angle_increment);
-
-      // Determine if laserscan rays with no obstacle data will evaluate to INF or max_range
-      if (param_.use_inf)
-      {
-        laserscan_msgs.ranges.assign(ranges_size, std::numeric_limits<double>::infinity());
-      }
-      else
-      {
-        laserscan_msgs.ranges.assign(ranges_size, laserscan_msgs.range_max + param_.inf_epsilon);
-      }
-
-      // Iterate through pointcloud
-      for (sensor_msgs::PointCloud2ConstIterator<float> iter_x(pointcloud_msgs, "x"), iter_y(pointcloud_msgs, "y"), iter_z(pointcloud_msgs, "z")
-          ; iter_x != iter_x.end(); ++iter_x, ++iter_y, ++iter_z)
-      {
-        // Check NaN value
-        if (std::isnan(*iter_x) || std::isnan(*iter_y) || std::isnan(*iter_z))
-        {
-          ROS_WARN("Rejected for NaN in points : (%f, %f, %f)", *iter_x, *iter_y, *iter_z);
-          continue;
-        }
-
-        // Check out of ROI using max_height && min_height
-        if (*iter_z > param_.max_height || *iter_z < param_.min_height)
-        {
-          ROS_WARN("Rejected for out of ROI [height, min, max] : (%f, %f, %f)", *iter_z, param_.min_height, param_.max_height);
-          continue;
-        }
-
-        double range = hypot(*iter_x, *iter_y);
-        if (range > param_.range_max || range < param_.range_min)
-        {
-          ROS_WARN("Rejected for out of ROI [range, min, max] : (%f, %f, %f)", range, param_.range_min, param_.range_max);
-          continue;
-        }
-
-        double angle = atan2(*iter_y, *iter_x);
-        if (angle > laserscan_msgs.angle_max || angle < laserscan_msgs.angle_min)
-        {
-          ROS_WARN("Rejected for out of ROI [angle, min, max] : (%f, %f, %f)", angle, laserscan_msgs.angle_min, laserscan_msgs.angle_max);
-          continue;
-        }
-
-        int index = (angle - laserscan_msgs.angle_min) / laserscan_msgs.angle_increment;
-        if (range < laserscan_msgs.ranges[index])
-        {
-          laserscan_msgs.ranges[index] = range;
-        }
-      }
-
-      // Publish LaserScan
-      laser_pub_.publish(laserscan_msgs);
-
-      r.sleep();
-    }
   }
 
 private:
@@ -152,6 +78,76 @@ private:
   void cloudCallback(const sensor_msgs::PointCloud2::Ptr& msg)
   {
     pointcloud_msgs = *msg;
+
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_ptr (new pcl::PointCloud<pcl::PointXYZ>());
+    pcl::fromROSMsg(*msg, *cloud_ptr);
+
+    // Convert PointCloud to LaserScan
+    laserscan_msgs.header = pointcloud_msgs.header;
+
+    laserscan_msgs.angle_min = param_.angle_min;
+    laserscan_msgs.angle_max = param_.angle_max;
+    laserscan_msgs.angle_increment = param_.angle_increment;
+    laserscan_msgs.time_increment = 0.0;
+    laserscan_msgs.scan_time = param_.scan_time;
+    laserscan_msgs.range_min = param_.range_min;
+    laserscan_msgs.range_max = param_.range_max;
+    
+    // Determine amount of rays to create 
+    uint32_t ranges_size = std::ceil( (laserscan_msgs.angle_max - laserscan_msgs.angle_min) / laserscan_msgs.angle_increment);
+
+    // Determine if laserscan rays with no obstacle data will evaluate to INF or max_range
+    if (param_.use_inf)
+    {
+      laserscan_msgs.ranges.assign(ranges_size, std::numeric_limits<double>::infinity());
+    }
+    else
+    {
+      laserscan_msgs.ranges.assign(ranges_size, laserscan_msgs.range_max + param_.inf_epsilon);
+    }
+
+    // for (sensor_msgs::PointCloud2ConstIterator<float> iter_x(pointcloud_msgs, "x"), iter_y(pointcloud_msgs, "y"), iter_z(pointcloud_msgs, "z")
+    //     ; iter_x != iter_x.end(); ++iter_x, ++iter_y, ++iter_z)
+    // Iterate through pointcloud
+    for (pcl::PointCloud<pcl::PointXYZ>::const_iterator iter((*cloud_ptr).begin()); iter != (*cloud_ptr).end(); iter++)
+    {
+      // Check NaN value
+      if ( std::isnan(iter->x) || std::isnan(iter->y) || std::isnan(iter->z) )
+      {
+        ROS_WARN("Rejected for NaN in points : (%f, %f, %f)", iter->x, iter->y, iter->z);
+        continue;
+      }
+
+      // Check out of ROI using max_height && min_height
+      if ( iter->z > param_.max_height || iter->z < param_.min_height )
+      {
+        ROS_WARN("Rejected for out of ROI [height, min, max] : (%f, %f, %f)", iter->z, param_.min_height, param_.max_height);
+        continue;
+      }
+
+      double range = hypot( iter->x, iter->y );
+      if (range > param_.range_max || range < param_.range_min)
+      {
+        ROS_WARN("Rejected for out of ROI [range, min, max] : (%f, %f, %f)", range, param_.range_min, param_.range_max);
+        continue;
+      }
+
+      double angle = atan2( iter->y, iter->x );
+      if (angle > laserscan_msgs.angle_max || angle < laserscan_msgs.angle_min)
+      {
+        ROS_WARN("Rejected for out of ROI [angle, min, max] : (%f, %f, %f)", angle, laserscan_msgs.angle_min, laserscan_msgs.angle_max);
+        continue;
+      }
+
+      int index = (angle - laserscan_msgs.angle_min) / laserscan_msgs.angle_increment;
+      if (range < laserscan_msgs.ranges[index])
+      {
+        laserscan_msgs.ranges[index] = range;
+      }
+    }
+
+    // Publish LaserScan
+    laser_pub_.publish(laserscan_msgs);
   }
 };
 
