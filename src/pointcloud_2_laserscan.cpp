@@ -38,14 +38,6 @@ struct LaserScanParameter
 
   double inf_epsilon = 1.0;
   bool use_inf = true;
-
-  /*
-  # Concurrency level, affects number of poinclouds queued for processing and number of threads used
-  # 0: Detect Number of cored
-  # 1: Single threaded
-  # 2->inf : Parallelism level
-  */
-  int concurrency_level = 1;
 };
 
 class LaserScanConverter
@@ -55,8 +47,8 @@ public:
   {
     // "cloud_in" -> "keypoints_cloud"
     //   "scan"   -> "keypoints/scan"
-    ros::Publisher laser_pub_ = nh_.advertise<sensor_msgs::LaserScan>("/scan", 1);
-    ros::Subscriber pointcloud_sub_ = nh_.subscribe("/cloud_in", 1, &LaserScanConverter::cloudCallback, this);
+    laser_pub_ = nh_.advertise<sensor_msgs::LaserScan>("/scan", 1);
+    pointcloud_sub_ = nh_.subscribe("/cloud_in", 1, &LaserScanConverter::cloudCallback, this);
 
     ros::spin();
   }
@@ -83,7 +75,7 @@ private:
     pcl::fromROSMsg(*msg, *cloud_ptr);
 
     // Convert PointCloud to LaserScan
-    laserscan_msgs.header = pointcloud_msgs.header;
+    laserscan_msgs.header = msg->header;
 
     laserscan_msgs.angle_min = param_.angle_min;
     laserscan_msgs.angle_max = param_.angle_max;
@@ -106,8 +98,6 @@ private:
       laserscan_msgs.ranges.assign(ranges_size, laserscan_msgs.range_max + param_.inf_epsilon);
     }
 
-    // for (sensor_msgs::PointCloud2ConstIterator<float> iter_x(pointcloud_msgs, "x"), iter_y(pointcloud_msgs, "y"), iter_z(pointcloud_msgs, "z")
-    //     ; iter_x != iter_x.end(); ++iter_x, ++iter_y, ++iter_z)
     // Iterate through pointcloud
     for (pcl::PointCloud<pcl::PointXYZ>::const_iterator iter((*cloud_ptr).begin()); iter != (*cloud_ptr).end(); iter++)
     {
@@ -145,6 +135,7 @@ private:
         laserscan_msgs.ranges[index] = range;
       }
     }
+    std::cout << "ranges.size(): " << laserscan_msgs.ranges.size() << std::endl;
 
     // Publish LaserScan
     laser_pub_.publish(laserscan_msgs);
