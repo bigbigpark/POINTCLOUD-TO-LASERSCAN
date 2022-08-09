@@ -16,7 +16,7 @@
 
 #include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/LaserScan.h>
-#include <sensor_msgs/point_cloud2_iterator.h>
+
 #include <pcl/conversions.h>
 #include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
@@ -45,8 +45,6 @@ class LaserScanConverter
 public:
   LaserScanConverter(ros::NodeHandle& nh) : nh_(nh)
   {
-    // "cloud_in" -> "keypoints_cloud"
-    //   "scan"   -> "keypoints/scan"
     laser_pub_ = nh_.advertise<sensor_msgs::LaserScan>("/scan", 1);
     pointcloud_sub_ = nh_.subscribe("/cloud_in", 1, &LaserScanConverter::cloudCallback, this);
 
@@ -64,17 +62,13 @@ private:
   ros::Subscriber pointcloud_sub_;
 
   ros::NodeHandle nh_;
-  sensor_msgs::PointCloud2 pointcloud_msgs;
   sensor_msgs::LaserScan laserscan_msgs;
 
   void cloudCallback(const sensor_msgs::PointCloud2::Ptr& msg)
   {
-    pointcloud_msgs = *msg;
-
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_ptr (new pcl::PointCloud<pcl::PointXYZ>());
     pcl::fromROSMsg(*msg, *cloud_ptr);
 
-    // Convert PointCloud to LaserScan
     laserscan_msgs.header = msg->header;
 
     laserscan_msgs.angle_min = param_.angle_min;
@@ -85,10 +79,8 @@ private:
     laserscan_msgs.range_min = param_.range_min;
     laserscan_msgs.range_max = param_.range_max;
     
-    // Determine amount of rays to create 
-    uint32_t ranges_size = std::ceil( (laserscan_msgs.angle_max - laserscan_msgs.angle_min) / laserscan_msgs.angle_increment);
+    uint32_t ranges_size = std::ceil( (laserscan_msgs.angle_max - laserscan_msgs.angle_min) / laserscan_msgs.angle_increment );
 
-    // Determine if laserscan rays with no obstacle data will evaluate to INF or max_range
     if (param_.use_inf)
     {
       laserscan_msgs.ranges.assign(ranges_size, std::numeric_limits<double>::infinity());
@@ -101,14 +93,12 @@ private:
     // Iterate through pointcloud
     for (pcl::PointCloud<pcl::PointXYZ>::const_iterator iter((*cloud_ptr).begin()); iter != (*cloud_ptr).end(); iter++)
     {
-      // Check NaN value
       if ( std::isnan(iter->x) || std::isnan(iter->y) || std::isnan(iter->z) )
       {
         ROS_WARN("Rejected for NaN in points : (%f, %f, %f)", iter->x, iter->y, iter->z);
         continue;
       }
 
-      // Check out of ROI using max_height && min_height
       if ( iter->z > param_.max_height || iter->z < param_.min_height )
       {
         ROS_WARN("Rejected for out of ROI [height, min, max] : (%f, %f, %f)", iter->z, param_.min_height, param_.max_height);
@@ -137,11 +127,9 @@ private:
     }
     std::cout << "ranges.size(): " << laserscan_msgs.ranges.size() << std::endl;
 
-    // Publish LaserScan
     laser_pub_.publish(laserscan_msgs);
   }
 };
-
 
 int main(int argc, char** argv)
 {
