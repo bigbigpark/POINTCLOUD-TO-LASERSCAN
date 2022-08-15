@@ -31,7 +31,7 @@ struct LaserScanParameter
 
   double angle_min = -3.14; // -3.14
   double angle_max =  3.14; // 3.14
-  double angle_increment =  0.0174532889; // 0.00174532889; //[rad]
+  double angle_increment =  0.087266445; // 0.00174532889; //[rad]
   double scan_time = 1.0; // time between scans [seconds]
   double range_min = 0.01;
   double range_max = 100.0;
