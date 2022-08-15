@@ -31,7 +31,7 @@ struct LaserScanParameter
 
   double angle_min = -3.14; // -3.14
   double angle_max =  3.14; // 3.14
-  double angle_increment =  0.00174532889; //[rad]
+  double angle_increment =  0.0174532889; // 0.00174532889; //[rad]
   double scan_time = 1.0; // time between scans [seconds]
   double range_min = 0.01;
   double range_max = 100.0;
@@ -95,27 +95,27 @@ private:
     {
       if ( std::isnan(iter->x) || std::isnan(iter->y) || std::isnan(iter->z) )
       {
-        ROS_WARN("Rejected for NaN in points : (%f, %f, %f)", iter->x, iter->y, iter->z);
+        // ROS_WARN("Rejected for NaN in points : (%f, %f, %f)", iter->x, iter->y, iter->z);
         continue;
       }
 
       if ( iter->z > param_.max_height || iter->z < param_.min_height )
       {
-        ROS_WARN("Rejected for out of ROI [height, min, max] : (%f, %f, %f)", iter->z, param_.min_height, param_.max_height);
+        // ROS_WARN("Rejected for out of ROI [height, min, max] : (%f, %f, %f)", iter->z, param_.min_height, param_.max_height);
         continue;
       }
 
       double range = hypot( iter->x, iter->y );
       if (range > param_.range_max || range < param_.range_min)
       {
-        ROS_WARN("Rejected for out of ROI [range, min, max] : (%f, %f, %f)", range, param_.range_min, param_.range_max);
+        // ROS_WARN("Rejected for out of ROI [range, min, max] : (%f, %f, %f)", range, param_.range_min, param_.range_max);
         continue;
       }
 
       double angle = atan2( iter->y, iter->x );
       if (angle > laserscan_msgs.angle_max || angle < laserscan_msgs.angle_min)
       {
-        ROS_WARN("Rejected for out of ROI [angle, min, max] : (%f, %f, %f)", angle, laserscan_msgs.angle_min, laserscan_msgs.angle_max);
+        // ROS_WARN("Rejected for out of ROI [angle, min, max] : (%f, %f, %f)", angle, laserscan_msgs.angle_min, laserscan_msgs.angle_max);
         continue;
       }
 
@@ -125,7 +125,7 @@ private:
         laserscan_msgs.ranges[index] = range;
       }
     }
-    std::cout << "ranges.size(): " << laserscan_msgs.ranges.size() << std::endl;
+    // std::cout << "ranges.size(): " << laserscan_msgs.ranges.size() << std::endl;
 
     laser_pub_.publish(laserscan_msgs);
   }

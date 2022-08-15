@@ -1,6 +1,7 @@
 <launch>
   <node pkg="pointcloud_2_laserscan" type="pointcloud_2_laserscan" name="pointcloud_2_laserscan" output="screen">
-    <remap from="cloud_in" to="lidar_data"/>
+    <!-- map_cloud | keypoints_cloud -->
+    <remap from="cloud_in" to="keypoints_cloud"/>
     <remap from="scan" to="keypoints/scan"/>
   </node>
 </launch>
